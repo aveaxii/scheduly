@@ -117,4 +117,28 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Center time input placeholders across all browsers */
+  input[type="time"]::placeholder {
+    text-align: center;
+    opacity: 1;
+  }
+  
+  input[type="time"]::-webkit-input-placeholder {
+    text-align: center;
+  }
+  
+  input[type="time"]:-moz-placeholder {
+    text-align: center;
+    opacity: 1;
+  }
+  
+  input[type="time"]::-moz-placeholder {
+    text-align: center;
+    opacity: 1;
+  }
+  
+  input[type="time"]:-ms-input-placeholder {
+    text-align: center;
+  }
 }
