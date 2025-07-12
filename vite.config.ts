@@ -11,9 +11,5 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  base: "/scheduly/",
-  build: {
-    outDir: 'dist',
-    assetsDir: 'assets',
-  },
+  base: "/scheduly",
 })

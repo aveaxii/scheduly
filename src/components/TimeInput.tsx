@@ -33,19 +33,33 @@ export function TimeInput({ value, onChange, className = '' }: TimeInputProps) {
 
   const handleHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '');
-    if (val === '' || (parseInt(val) >= 0 && parseInt(val) <= 23)) {
-      setHours(val);
-      // Auto-focus minutes when hours are complete
-      if (val.length === 2) {
-        minutesRef.current?.focus();
+    
+    // Allow empty or valid hours (0-23)
+    if (val === '') {
+      setHours('');
+    } else {
+      const numVal = parseInt(val);
+      if (numVal >= 0 && numVal <= 23) {
+        setHours(val);
+        // Auto-focus minutes when hours are complete (2 digits)
+        if (val.length === 2) {
+          minutesRef.current?.focus();
+        }
       }
     }
   };
 
   const handleMinutesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '');
-    if (val === '' || (parseInt(val) >= 0 && parseInt(val) <= 59)) {
-      setMinutes(val);
+    
+    // Allow empty or valid minutes (0-59)
+    if (val === '') {
+      setMinutes('');
+    } else {
+      const numVal = parseInt(val);
+      if (numVal >= 0 && numVal <= 59) {
+        setMinutes(val);
+      }
     }
   };
 
@@ -63,6 +77,16 @@ export function TimeInput({ value, onChange, className = '' }: TimeInputProps) {
     }
   };
 
+  const handleHoursFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    // Select all text on focus for easy replacement
+    e.target.select();
+  };
+
+  const handleMinutesFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    // Select all text on focus for easy replacement
+    e.target.select();
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -76,6 +100,7 @@ export function TimeInput({ value, onChange, className = '' }: TimeInputProps) {
         value={hours}
         onChange={handleHoursChange}
         onKeyDown={handleHoursKeyDown}
+        onFocus={handleHoursFocus}
         placeholder="HH"
         maxLength={2}
         className="w-20 h-16 text-center text-4xl font-mono border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-900/20 transition-all duration-300"
@@ -103,6 +128,7 @@ export function TimeInput({ value, onChange, className = '' }: TimeInputProps) {
         value={minutes}
         onChange={handleMinutesChange}
         onKeyDown={handleMinutesKeyDown}
+        onFocus={handleMinutesFocus}
         placeholder="MM"
         maxLength={2}
         className="w-20 h-16 text-center text-4xl font-mono border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-900/20 transition-all duration-300"
