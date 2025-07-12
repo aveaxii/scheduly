@@ -13,12 +13,7 @@ const CONSTANTS = {
   EVENING_LIGHTS_OFF_BUFFER: 15,
 };
 
-const WINDOW_LIMITS = {
-  LONG: { maxAnki: 45, minTotal: 120 },
-  MEDIUM: { maxAnki: 30, minTotal: 75 },
-  SHORT: { maxAnki: 20, minTotal: 30 },
-  'SLEEP-FIRST': { maxAnki: 0, minTotal: 0 },
-};
+const ANKI_DURATION = 15; // Fixed 15 minutes for all cases
 
 interface ScheduleStore extends ScheduleState {
   // Actions
@@ -92,7 +87,7 @@ export const useScheduleStore = create<ScheduleStore>()(persist(
     },
 
     generateEveningSchedule: () => {
-      const { arrivalTimeHome, timeWindow, ankiCardsRemaining } = get();
+      const { arrivalTimeHome, timeWindow } = get();
       if (!arrivalTimeHome || !timeWindow) return;
 
       const blocks: TimeBlock[] = [];
@@ -115,19 +110,16 @@ export const useScheduleStore = create<ScheduleStore>()(persist(
       const availableStudy = get().getAvailableStudyTime(arrivalTimeHome);
       
       if (availableStudy >= CONSTANTS.MIN_STUDY_BLOCK_LENGTH && timeWindow !== 'SLEEP-FIRST') {
-        const limits = WINDOW_LIMITS[timeWindow];
-        
-        // ANKI block
-        if (ankiCardsRemaining > 0) {
-          const ankiTime = Math.min(limits.maxAnki, Math.ceil(ankiCardsRemaining * 1.5)); // 1.5 min per card estimate
-          const ankiEnd = addMinutes(currentTime, ankiTime);
+        // ANKI block - Fixed 15 minutes for all cases
+        if (availableStudy >= ANKI_DURATION) {
+          const ankiEnd = addMinutes(currentTime, ANKI_DURATION);
           
           blocks.push({
             id: 'anki-evening',
-            name: `Anki (${ankiCardsRemaining} cards)`,
+            name: 'Anki Review',
             startTime: format(currentTime, 'HH:mm'),
             endTime: format(ankiEnd, 'HH:mm'),
-            duration: ankiTime,
+            duration: ANKI_DURATION,
             activity: 'ANKI_DUE',
             isOptional: false,
           });
