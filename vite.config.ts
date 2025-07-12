@@ -11,7 +11,7 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  base: process.env.NODE_ENV === 'production' ? '/scheduly/' : '/',
+  base: '/',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',

@@ -24,9 +24,7 @@ jobs:
       run: npm ci
 
     - name: Build
-      run: npm run build
-      env:
-        NODE_ENV: production
+      run: npm run build:gh-pages
 
     - name: Setup Pages
       uses: actions/configure-pages@v4
