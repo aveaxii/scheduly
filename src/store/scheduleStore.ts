@@ -14,6 +14,10 @@ const CONSTANTS = {
 };
 
 const ANKI_DURATION = 15; // Fixed 15 minutes for all cases
+const MAX_PASSIVE_LISTENING = 20; // Max 20 minutes for pre-sleep passive listening
+const MIN_WINDDOWN_TIME = 15; // Minimum 15 minutes for wind-down before sleep
+const ACTIVE_CYCLE_DURATION = 30; // 30 minutes per active listening cycle
+const MIN_ACTIVE_BLOCK = 25; // Minimum 25 minutes needed for active listening
 
 interface ScheduleStore extends ScheduleState {
   // Actions
@@ -83,7 +87,7 @@ export const useScheduleStore = create<ScheduleStore>()(persist(
       }
       
       const totalMinutes = differenceInMinutes(lightsOff, arrival);
-      return Math.max(0, totalMinutes - CONSTANTS.EVENING_LIGHTS_OFF_BUFFER - CONSTANTS.MIN_HYGIENE_BLOCK_LENGTH);
+      return Math.max(0, totalMinutes - MIN_WINDDOWN_TIME - CONSTANTS.MIN_HYGIENE_BLOCK_LENGTH);
     },
 
     generateEveningSchedule: () => {
@@ -110,7 +114,7 @@ export const useScheduleStore = create<ScheduleStore>()(persist(
       const availableStudy = get().getAvailableStudyTime(arrivalTimeHome);
       
       if (availableStudy >= CONSTANTS.MIN_STUDY_BLOCK_LENGTH && timeWindow !== 'SLEEP-FIRST') {
-        // ANKI block - Fixed 15 minutes for all cases
+        // Step 1: ANKI block - Fixed 15 minutes for all cases
         if (availableStudy >= ANKI_DURATION) {
           const ankiEnd = addMinutes(currentTime, ANKI_DURATION);
           
@@ -126,41 +130,98 @@ export const useScheduleStore = create<ScheduleStore>()(persist(
           currentTime = ankiEnd;
         }
 
-        // Active listening cycles
-        const remainingTime = get().getAvailableStudyTime(arrivalTimeHome) - (currentTime.getTime() - arrivalTime.getTime()) / 60000;
-        if (remainingTime >= 30) {
-          const cycles = Math.floor(remainingTime / 30);
-          for (let i = 0; i < cycles; i++) {
-            const cycleEnd = addMinutes(currentTime, 25);
+        // Step 2: Calculate time windows for optimal scheduling
+        const lightsOffTime = parse(CONSTANTS.LIGHTS_OFF_HARD_CAP, 'HH:mm', new Date());
+        if (lightsOffTime.getHours() < 12) {
+          lightsOffTime.setDate(lightsOffTime.getDate() + 1);
+        }
+        
+        const winddownStart = addMinutes(lightsOffTime, -MIN_WINDDOWN_TIME);
+        const passiveStart = addMinutes(winddownStart, -MAX_PASSIVE_LISTENING);
+        
+        // Calculate remaining time for active listening
+        const timeForActive = differenceInMinutes(passiveStart, currentTime);
+        
+        // Step 3: Maximize Active Listening cycles
+        if (timeForActive >= MIN_ACTIVE_BLOCK) {
+          const activeCycles = Math.floor(timeForActive / ACTIVE_CYCLE_DURATION);
+          
+          for (let i = 0; i < activeCycles; i++) {
+            const cycleEnd = addMinutes(currentTime, ACTIVE_CYCLE_DURATION);
             blocks.push({
               id: `active-${i}`,
               name: `Active Listening Cycle ${i + 1}`,
               startTime: format(currentTime, 'HH:mm'),
               endTime: format(cycleEnd, 'HH:mm'),
-              duration: 25,
+              duration: ACTIVE_CYCLE_DURATION,
               activity: 'ACTIVE_LISTENING',
               isOptional: false,
             });
-            currentTime = addMinutes(cycleEnd, 5); // 5 min break
+            currentTime = cycleEnd;
+          }
+          
+          // Use remaining time for additional active listening if >= 25 minutes
+          const remainingActiveTime = differenceInMinutes(passiveStart, currentTime);
+          if (remainingActiveTime >= MIN_ACTIVE_BLOCK) {
+            const finalActiveEnd = addMinutes(currentTime, remainingActiveTime);
+            blocks.push({
+              id: `active-final`,
+              name: `Active Listening Final Block`,
+              startTime: format(currentTime, 'HH:mm'),
+              endTime: format(finalActiveEnd, 'HH:mm'),
+              duration: remainingActiveTime,
+              activity: 'ACTIVE_LISTENING',
+              isOptional: false,
+            });
+            currentTime = finalActiveEnd;
+          }
+          
+          // Step 4: Add Passive Listening (max 20 minutes, only if there's leftover time)
+          if (isBefore(currentTime, passiveStart)) {
+            const passiveTime = Math.min(differenceInMinutes(passiveStart, currentTime), MAX_PASSIVE_LISTENING);
+            const passiveEnd = addMinutes(currentTime, passiveTime);
+            
+            blocks.push({
+              id: 'passive-evening',
+              name: 'Passive Listening',
+              startTime: format(currentTime, 'HH:mm'),
+              endTime: format(passiveEnd, 'HH:mm'),
+              duration: passiveTime,
+              activity: 'PASSIVE_LISTENING',
+              isOptional: true,
+            });
+            currentTime = passiveEnd;
+          }
+          
+        } else {
+          // Fallback: Less than 25 minutes total - use for passive listening
+          const fallbackTime = differenceInMinutes(passiveStart, currentTime);
+          if (fallbackTime > 0) {
+            const fallbackEnd = addMinutes(currentTime, fallbackTime);
+            blocks.push({
+              id: 'passive-fallback',
+              name: 'Passive Listening',
+              startTime: format(currentTime, 'HH:mm'),
+              endTime: format(fallbackEnd, 'HH:mm'),
+              duration: fallbackTime,
+              activity: 'PASSIVE_LISTENING',
+              isOptional: true,
+            });
+            currentTime = fallbackEnd;
           }
         }
-
-        // Passive listening until lights off
-        const lightsOffTime = parse(CONSTANTS.LIGHTS_OFF_HARD_CAP, 'HH:mm', new Date());
-        if (lightsOffTime.getHours() < 12) {
-          lightsOffTime.setDate(lightsOffTime.getDate() + 1);
-        }
-        const bufferTime = addMinutes(lightsOffTime, -CONSTANTS.EVENING_LIGHTS_OFF_BUFFER);
         
-        if (isBefore(currentTime, bufferTime)) {
+        // Step 5: Wind-down block (device-free time before sleep)
+        if (isBefore(currentTime, winddownStart)) {
+          const winddownTime = differenceInMinutes(winddownStart, currentTime);
           blocks.push({
-            id: 'passive-evening',
-            name: 'Passive Listening',
+            id: 'winddown',
+            name: 'Wind-down / Device-free',
             startTime: format(currentTime, 'HH:mm'),
-            endTime: format(bufferTime, 'HH:mm'),
-            duration: differenceInMinutes(bufferTime, currentTime),
-            activity: 'PASSIVE_LISTENING',
-            isOptional: true,
+            endTime: format(winddownStart, 'HH:mm'),
+            duration: winddownTime,
+            activity: 'PREP',
+            isOptional: false,
           });
         }
       }
