@@ -124,7 +124,6 @@ function App() {
 
             <form onSubmit={handleSubmit} className="space-y-8">
               <TimeInput
-                value={arrivalTime}
                 onChange={setArrivalTime}
               />
               

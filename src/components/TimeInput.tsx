@@ -1,46 +1,40 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 
 interface TimeInputProps {
-  value: string;
   onChange: (value: string) => void;
   className?: string;
 }
 
-export function TimeInput({ value, onChange, className = '' }: TimeInputProps) {
+export function TimeInput({ onChange, className = '' }: TimeInputProps) {
   const [hours, setHours] = useState('');
   const [minutes, setMinutes] = useState('');
   const hoursRef = useRef<HTMLInputElement>(null);
   const minutesRef = useRef<HTMLInputElement>(null);
 
-  // Parse initial value
-  useEffect(() => {
-    if (value) {
-      const [h, m] = value.split(':');
-      setHours(h || '');
-      setMinutes(m || '');
-    }
-  }, [value]);
-
-  // Update parent when inputs change
-  useEffect(() => {
-    if (hours && minutes) {
-      onChange(`${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`);
-    } else if (!hours && !minutes) {
+  const updateParent = (newHours: string, newMinutes: string) => {
+    if (newHours && newMinutes) {
+      // Only format with leading zeros when sending to parent
+      const formattedHours = newHours.padStart(2, '0');
+      const formattedMinutes = newMinutes.padStart(2, '0');
+      onChange(`${formattedHours}:${formattedMinutes}`);
+    } else {
       onChange('');
     }
-  }, [hours, minutes, onChange]);
+  };
 
   const handleHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '');
     
-    // Allow empty or valid hours (0-23)
     if (val === '') {
       setHours('');
+      updateParent('', minutes);
     } else {
       const numVal = parseInt(val);
       if (numVal >= 0 && numVal <= 23) {
-        setHours(val);
+        setHours(val); // Keep exactly what user typed
+        updateParent(val, minutes);
+        
         // Auto-focus minutes when hours are complete (2 digits)
         if (val.length === 2) {
           minutesRef.current?.focus();
@@ -52,13 +46,14 @@ export function TimeInput({ value, onChange, className = '' }: TimeInputProps) {
   const handleMinutesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '');
     
-    // Allow empty or valid minutes (0-59)
     if (val === '') {
       setMinutes('');
+      updateParent(hours, '');
     } else {
       const numVal = parseInt(val);
       if (numVal >= 0 && numVal <= 59) {
-        setMinutes(val);
+        setMinutes(val); // Keep exactly what user typed
+        updateParent(hours, val);
       }
     }
   };
@@ -78,12 +73,10 @@ export function TimeInput({ value, onChange, className = '' }: TimeInputProps) {
   };
 
   const handleHoursFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    // Select all text on focus for easy replacement
     e.target.select();
   };
 
   const handleMinutesFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    // Select all text on focus for easy replacement
     e.target.select();
   };
 
